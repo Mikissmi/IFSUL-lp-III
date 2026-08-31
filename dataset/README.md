@@ -63,6 +63,35 @@ perfis de pele/preocupação na lógica de recomendação.
   estar erradas. Preencha com os links reais da loja/parceiro que você for
   usar.
 
+## Verificação de `link_produto`/`fonte` (101 de 125 produtos)
+
+Uma busca verificou, produto a produto, se ele realmente existe à venda sob
+esse nome e encontrou a página real da loja/site oficial — preenchendo
+`link_produto` e `fonte` só quando confirmado (sem visitar a página em si,
+então `imagem_url`, `preco_brl`, `avaliacao` e `num_avaliacoes` continuam
+vazios; isso exige acesso de navegação real, não só busca).
+
+**24 produtos não foram encontrados à venda sob o nome exato do catálogo** —
+prova de que alguns nomes/linhas que eu havia assumido como reais mudaram ou
+nunca existiram assim no Brasil. Antes de usar esses 24 em produção, vale
+corrigir o nome/linha ou trocar por um produto real da mesma marca:
+
+- La Roche-Posay — Effaclar Micro-Peeling Ultra Fino
+- Vichy — Normaderm Phytosolution Esfoliante
+- Eucerin — Even Brighter Sérum
+- Bioderma — Sébium Tonique
+- CeraVe — Loção Hidratante Facial SA; Loção Hidratante com FPS 60 (CeraVe BR só vende FPS 50)
+- Neutrogena — Visibly Clear Pontos Negros
+- L'Oréal Paris — Hyaluron Expert Creme (linha não vendida no Brasil)
+- Sallve — Bruma Refrescante; Sérum Niacinamida 10% (só existe a versão 20%); Máscara Hidratante Calmante; Óleo Facial Nutritivo
+- Skin1004 — Centella Calming Mask
+- Payot — Doctor Payot Sérum Anti-Idade; Dermo Sculpt Creme
+- O Boticário — Nativa SPA Ameixa Creme Facial (só existe para corpo/mãos); Photoshow Protetor Solar Facial (linha descontinuada, hoje é "Boti.Sun")
+- Natura — Una Água Micelar
+- Adcos — Prevent Sérum Antioxidante; Nude Base Hidratante com Cor; Even Creme Clareador (linha atual chama-se "Melan-Off")
+- Avène — Hydrance Aqua-Gel; Tolerance Creme
+- Granado — Água Micelar Granado (a marca não tem esse produto)
+
 ## Regerando ou expandindo o dataset
 
 Para adicionar produtos, edite a lista `PRODUCTS` em `generate_dataset.py`
