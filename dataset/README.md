@@ -25,9 +25,10 @@ alimentar uma funcionalidade de **recomendação por tipo de pele / rotina**
 | `ingrediente_principal`  | Ativo/ingrediente de destaque do produto                                  |
 | `fps`                    | Fator de proteção solar (preenchido apenas para `categoria = Protetor Solar`) |
 | `tamanho_ml`             | Tamanho/volume da embalagem, em ml                                         |
-| `preco_brl`              | Preço estimado em reais (R$)                                               |
-| `avaliacao`              | Nota média simulada (escala 0–5)                                           |
-| `num_avaliacoes`         | Número simulado de avaliações                                             |
+| `preco_brl`              | Vazio de propósito — só preencher com preço confirmado numa fonte real (ver abaixo) |
+| `avaliacao`              | Vazio de propósito — só preencher com nota confirmada numa fonte real (ver abaixo) |
+| `num_avaliacoes`         | Vazio de propósito — idem                                                  |
+| `fonte`                  | Vazio — nome do site de onde vieram `preco_brl`/`avaliacao`/`num_avaliacoes` (ex.: "Época Cosméticos"), pra deixar claro pro usuário final de onde saiu o dado |
 | `descricao`              | Descrição curta do produto                                                 |
 | `imagem_url`             | URL de imagem placeholder (ver observação abaixo)                          |
 | `link_produto`           | Vazio — preencher com o link real do produto no seu catálogo/loja          |
@@ -43,11 +44,16 @@ perfis de pele/preocupação na lógica de recomendação.
 - **Marca, nome, categoria, ingrediente principal e tamanho** são baseados
   em produtos reais e amplamente conhecidos, vendidos no Brasil (farmácia,
   Sephora, Época Cosméticos, Beleza na Web etc.), cobrindo ~35 marcas.
-- **Preço, avaliação e número de avaliações são gerados dentro de faixas
-  realistas**, não foram raspados de nenhum site em tempo real — não uso
-  ferramentas de scraping/preços ao vivo. Antes de usar em produção,
-  vale conferir/atualizar os preços reais junto aos fornecedores ou a uma
-  API de preços do seu catálogo.
+- **Preço, avaliação, número de avaliações e fonte ficam vazios de
+  propósito.** A primeira versão deste dataset gerava esses valores dentro
+  de faixas realistas — mas um número fabricado, mesmo "realista", ainda é
+  fabricado: mostrar isso pro usuário final como se fosse avaliação de
+  verdade é prova social falsa. Preencha essas quatro colunas só quando
+  tiver uma fonte real e verificável (uma página de produto de loja/site
+  oficial) — e guarde o link dessa página em `link_produto`, pra o próprio
+  usuário poder conferir/comprar. Enquanto uma linha não tiver `fonte`
+  preenchida, a interface deve tratar preço/avaliação como "não
+  verificado", não esconder o fato de que é um vazio.
 - **`imagem_url`** aponta para um serviço de placeholder
   (`placehold.co`) com o nome do produto — não são fotos reais dos
   produtos (evita usar imagens de marcas sem licença/verificação). Troque

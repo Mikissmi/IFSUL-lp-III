@@ -6,15 +6,15 @@ brasileiro, organizados com os campos necessarios para uma funcionalidade
 de recomendacao por tipo de pele / rotina (tipo de pele, preocupacao,
 modo de uso, ingrediente principal, etc).
 
-Preco, avaliacao e numero de avaliacoes sao gerados dentro de faixas
-realistas para cada produto (ver README.md do dataset para detalhes e
-limitacoes). Rode `python3 generate_dataset.py` para regerar o CSV.
+Preco, avaliacao, numero de avaliacoes e fonte ficam vazios no CSV gerado
+aqui de proposito: sao dados que precisam vir de uma fonte real verificavel
+(loja/site oficial) antes de aparecer pro usuario final, pra nao mostrar
+prova social fabricada. Rode `python3 generate_dataset.py` para regerar o
+CSV a partir do catalogo (a lista PRODUCTS) sem perder valores ja
+preenchidos manualmente depois.
 """
 
 import csv
-import random
-
-random.seed(42)
 
 # (marca, nome, categoria, tipo_pele, preocupacao, modo_uso,
 #  ingrediente_principal, fps, tamanho_ml, preco_min, preco_max, descricao)
@@ -224,13 +224,14 @@ def slugify(text: str) -> str:
 
 
 def build_rows():
+    # preco_min/preco_max nao viram mais um preco fabricado: preco, avaliacao
+    # e num_avaliacoes ficam vazios ate serem confirmados numa fonte real
+    # (ver core/... "fonte" no projeto Django) - nao faz sentido mostrar pro
+    # usuario final um numero que ninguem verificou.
     rows = []
     for idx, (marca, nome, categoria, tipo_pele, preocupacao, modo_uso,
               ingrediente_principal, fps, tamanho_ml, preco_min, preco_max,
               descricao) in enumerate(PRODUCTS, start=1):
-        preco = round(random.uniform(preco_min, preco_max), 2)
-        avaliacao = round(random.uniform(3.6, 5.0), 1)
-        num_avaliacoes = random.randint(12, 4800)
         slug = slugify(f"{marca}-{nome}")
         imagem_url = f"https://placehold.co/400x400?text={slugify(nome).replace('-', '+')}"
         rows.append({
@@ -244,9 +245,10 @@ def build_rows():
             "ingrediente_principal": ingrediente_principal,
             "fps": fps,
             "tamanho_ml": tamanho_ml,
-            "preco_brl": preco,
-            "avaliacao": avaliacao,
-            "num_avaliacoes": num_avaliacoes,
+            "preco_brl": "",
+            "avaliacao": "",
+            "num_avaliacoes": "",
+            "fonte": "",
             "descricao": descricao,
             "imagem_url": imagem_url,
             "link_produto": "",
