@@ -9,7 +9,23 @@ alimentar uma funcionalidade de **recomendação por tipo de pele / rotina**
 - `produtos_skincare.csv` — dataset final, 125 produtos.
 - `generate_dataset.py` — script que gera o CSV a partir do catálogo
   curado. Rode `python3 generate_dataset.py` para regerar o arquivo (útil
-  se você adicionar/editar produtos na lista `PRODUCTS`).
+  se você adicionar/editar produtos na lista `PRODUCTS`). **Atenção:**
+  regerar por cima do CSV atual apaga `link_produto`/`fonte`/`imagem_url`
+  reais já preenchidos — não rode isso depois de ter coletado dados reais,
+  a menos que também atualize a lista `PRODUCTS`.
+- `buscar_fotos_precos.py` — script que visita os `link_produto` já
+  verificados e extrai foto/preço/avaliação reais da própria página (lê o
+  JSON-LD schema.org/Product que a loja expõe para o Google Shopping, com
+  fallback para meta tags Open Graph). Só preenche o que está vazio, nunca
+  sobrescreve dado já confirmado manualmente. Precisa rodar numa máquina
+  com internet normal (não funciona neste ambiente de sessão, que tem
+  saída de rede bloqueada por política da organização):
+  ```bash
+  pip install requests beautifulsoup4
+  python3 buscar_fotos_precos.py produtos_skincare.csv
+  ```
+  Gera `produtos_skincare.csv.atualizado` (não mexe no original) — confira
+  o resultado antes de substituir.
 
 ## Colunas
 
