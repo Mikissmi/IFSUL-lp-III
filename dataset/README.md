@@ -14,18 +14,34 @@ alimentar uma funcionalidade de **recomendação por tipo de pele / rotina**
   reais já preenchidos — não rode isso depois de ter coletado dados reais,
   a menos que também atualize a lista `PRODUCTS`.
 - `buscar_fotos_precos.py` — script que visita os `link_produto` já
-  verificados e extrai foto/preço/avaliação reais da própria página (lê o
-  JSON-LD schema.org/Product que a loja expõe para o Google Shopping, com
-  fallback para meta tags Open Graph). Só preenche o que está vazio, nunca
-  sobrescreve dado já confirmado manualmente. Precisa rodar numa máquina
-  com internet normal (não funciona neste ambiente de sessão, que tem
-  saída de rede bloqueada por política da organização):
+  verificados com um navegador headless (Playwright/Chromium, pois várias
+  lojas só carregam preço via JavaScript) e extrai foto/preço/avaliação
+  reais lendo o JSON-LD schema.org/Product que a própria loja expõe (o
+  mesmo dado usado pelo Google Shopping), com fallback para meta tags Open
+  Graph. Só aceita preço confirmado em `priceCurrency: BRL` (descarta preço
+  em outra moeda, ex. sites internacionais) e remove imagens que se repetem
+  em produtos diferentes (sinal de banner genérico, não foto de produto).
+  Só preenche o que está vazio — nunca sobrescreve dado já confirmado
+  manualmente.
   ```bash
-  pip install requests beautifulsoup4
+  pip install playwright beautifulsoup4
+  playwright install chromium   # só se os browsers ainda não estiverem instalados
   python3 buscar_fotos_precos.py produtos_skincare.csv
   ```
   Gera `produtos_skincare.csv.atualizado` (não mexe no original) — confira
-  o resultado antes de substituir.
+  o resultado antes de substituir. Precisa rodar numa máquina/ambiente com
+  saída de rede liberada para os domínios das lojas (por padrão, a sessão
+  de execução do Claude bloqueia saída de rede externa por política da
+  organização — foi preciso liberar isso nas configurações do ambiente
+  antes de rodar aqui).
+
+  **Limitações conhecidas, já rodado neste dataset:** de 101 produtos com
+  link verificado, 40 estão atrás de captcha/proteção anti-robô em
+  varejistas grandes (Época Cosméticos, Sephora, Natura, Bioderma, Eucerin,
+  CeraVe, SkinCeuticals, Isdin, Nuxe, Avène entre outros) — **não
+  tentamos contornar isso**, então esses continuam sem foto/preço
+  verificados. Resultado atual: 32 produtos com foto real, 14 com preço
+  real (BRL confirmado), 18 com avaliação real.
 
 ## Colunas
 

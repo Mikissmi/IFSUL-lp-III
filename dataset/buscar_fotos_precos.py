@@ -82,12 +82,21 @@ def extrair_preco(produto_jsonld, soup):
         if isinstance(offers, list) and offers:
             offers = offers[0]
         if isinstance(offers, dict):
+            moeda = offers.get("priceCurrency")
+            if moeda and moeda != "BRL":
+                return None  # preco em outra moeda (ex: site internacional) - nao confundir com real
             preco = offers.get("price") or offers.get("lowPrice")
             if preco:
                 try:
                     return round(float(str(preco).replace(",", ".")), 2)
                 except ValueError:
                     pass
+
+    og_moeda = soup.find("meta", property="product:price:currency") or soup.find(
+        "meta", property="og:price:currency"
+    )
+    if og_moeda and og_moeda.get("content") and og_moeda["content"] != "BRL":
+        return None
 
     og_preco = soup.find("meta", property="product:price:amount") or soup.find(
         "meta", property="og:price:amount"
