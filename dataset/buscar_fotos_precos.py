@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
 Busca foto, preco e avaliacao reais dos produtos do catalogo, visitando os
-links de loja ja verificados (coluna link_produto) e lendo os dados
-estruturados (JSON-LD schema.org/Product, ou meta tags Open Graph) que a
-propria pagina do produto expoe para aparecer no Google Shopping.
+links de loja ja verificados (coluna link_produto) com um navegador headless
+(Chromium via Playwright, para paginas que carregam o preco via JavaScript) e
+lendo os dados estruturados (JSON-LD schema.org/Product, ou meta tags Open
+Graph) que a propria pagina do produto expoe para aparecer no Google
+Shopping.
 
-Roda na SUA maquina (precisa de internet normal - nao funciona num ambiente
-com proxy de saida restrito). So preenche o que ainda esta vazio: nunca
-sobrescreve uma foto/preco/avaliacao que voce ja confirmou manualmente.
+So preenche o que ainda esta vazio: nunca sobrescreve uma foto/preco/
+avaliacao ja confirmados manualmente. Paginas protegidas por captcha/anti-bot
+(ex: alguns grandes varejistas) sao puladas de proposito - nao tentamos
+contornar esse tipo de protecao.
 
 Uso:
-    pip install requests beautifulsoup4
+    pip install playwright beautifulsoup4
+    playwright install chromium   # so se os browsers nao estiverem instalados
     python3 buscar_fotos_precos.py produtos_skincare.csv
 
 Gera produtos_skincare.csv.atualizado (nao mexe no arquivo original) -
@@ -23,20 +27,19 @@ import re
 import sys
 import time
 
-import requests
 from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
+TIMEOUT_MS = 25000
+DELAY_ENTRE_REQUISICOES = 1.5  # segundos - nao sobrecarrega os sites
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36 "
-    "LUMESkinDatasetBot/1.0 (projeto academico TCC, uso pessoal e nao comercial)"
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 )
-TIMEOUT = 15
-DELAY_ENTRE_REQUISICOES = 2.0  # segundos - nao sobrecarrega o site
+MARCADORES_CAPTCHA = ("não sou um robô", "nao sou um robo", "captcha", "are you a human", "access denied")
 
 
 def extrair_json_ld_produto(soup):
-    """Procura um bloco <script type="application/ld+json"> com @type Product."""
     for tag in soup.find_all("script", type="application/ld+json"):
         try:
             dados = json.loads(tag.string or "")
@@ -44,7 +47,6 @@ def extrair_json_ld_produto(soup):
             continue
 
         candidatos = dados if isinstance(dados, list) else [dados]
-        # alguns sites colocam o Product dentro de "@graph"
         achatados = []
         for item in candidatos:
             if isinstance(item, dict) and "@graph" in item:
@@ -122,7 +124,12 @@ def extrair_fonte(url):
     return m.group(1) if m else ""
 
 
-def processar_linha(sessao, linha):
+def pagina_tem_captcha(texto_visivel):
+    texto = texto_visivel.lower()
+    return any(marcador in texto for marcador in MARCADORES_CAPTCHA)
+
+
+def processar_linha(page, linha):
     url = linha.get("link_produto", "").strip()
     if not url:
         return "sem_link"
@@ -133,13 +140,17 @@ def processar_linha(sessao, linha):
         return "ja_completo"
 
     try:
-        resposta = sessao.get(url, timeout=TIMEOUT)
-        resposta.raise_for_status()
-    except requests.RequestException as exc:
+        page.goto(url, wait_until="load", timeout=TIMEOUT_MS)
+        page.wait_for_timeout(2500)  # da tempo pro JS terminar de montar a pagina
+        texto_visivel = page.inner_text("body")
+        if pagina_tem_captcha(texto_visivel):
+            return "bloqueado_por_captcha"
+        html = page.content()
+    except Exception as exc:
         print(f"  [erro] {url} -> {exc}")
         return "erro"
 
-    soup = BeautifulSoup(resposta.text, "html.parser")
+    soup = BeautifulSoup(html, "html.parser")
     produto_jsonld = extrair_json_ld_produto(soup)
 
     achou_algo = False
@@ -170,6 +181,28 @@ def processar_linha(sessao, linha):
     return "atualizado" if achou_algo else "nada_encontrado"
 
 
+def remover_imagens_duplicadas(linhas):
+    """
+    Se a MESMA URL de imagem aparece em produtos diferentes, e quase certo
+    que e uma imagem generica (banner de boas-vindas, logo, etc.), nao uma
+    foto de produto - limpa essas pra nao mostrar foto errada.
+    """
+    contagem = {}
+    for linha in linhas:
+        img = linha.get("imagem_url", "")
+        if img and "placehold.co" not in img:
+            contagem[img] = contagem.get(img, 0) + 1
+
+    duplicadas = {img for img, qtd in contagem.items() if qtd > 1}
+    removidas = 0
+    for linha in linhas:
+        if linha.get("imagem_url") in duplicadas:
+            print(f"  [aviso] imagem duplicada removida: {linha['marca']} - {linha['nome']} ({linha['imagem_url'][:80]})")
+            linha["imagem_url"] = ""
+            removidas += 1
+    return removidas
+
+
 def main():
     if len(sys.argv) != 2:
         print("Uso: python3 buscar_fotos_precos.py produtos_skincare.csv")
@@ -181,23 +214,39 @@ def main():
         fieldnames = leitor.fieldnames
         linhas = list(leitor)
 
-    sessao = requests.Session()
-    sessao.headers.update({"User-Agent": USER_AGENT})
+    contagem = {
+        "atualizado": 0, "nada_encontrado": 0, "erro": 0,
+        "sem_link": 0, "ja_completo": 0, "bloqueado_por_captcha": 0,
+    }
 
-    contagem = {"atualizado": 0, "nada_encontrado": 0, "erro": 0, "sem_link": 0, "ja_completo": 0}
+    with sync_playwright() as p:
+        try:
+            browser = p.chromium.launch()
+        except Exception:
+            # ambiente da sessao Claude: versao instalada nao bate com a que
+            # o pacote playwright espera por padrao, entao aponta direto pro
+            # executavel. Rodando na sua propria maquina com
+            # `playwright install chromium`, esse except nunca deveria disparar.
+            browser = p.chromium.launch(executable_path="/opt/pw-browsers/chromium-1194/chrome-linux/chrome")
+        page = browser.new_page(user_agent=USER_AGENT)
 
-    for i, linha in enumerate(linhas, start=1):
-        if not linha.get("link_produto"):
-            contagem["sem_link"] += 1
-            continue
+        for i, linha in enumerate(linhas, start=1):
+            if not linha.get("link_produto"):
+                contagem["sem_link"] += 1
+                continue
 
-        print(f"[{i}/{len(linhas)}] {linha['marca']} - {linha['nome']}")
-        resultado = processar_linha(sessao, linha)
-        contagem[resultado] += 1
-        print(f"  -> {resultado}")
+            print(f"[{i}/{len(linhas)}] {linha['marca']} - {linha['nome']}")
+            resultado = processar_linha(page, linha)
+            contagem[resultado] += 1
+            print(f"  -> {resultado}")
 
-        if resultado not in ("sem_link", "ja_completo"):
-            time.sleep(DELAY_ENTRE_REQUISICOES)
+            if resultado not in ("sem_link", "ja_completo"):
+                time.sleep(DELAY_ENTRE_REQUISICOES)
+
+        browser.close()
+
+    print("\nVerificando imagens duplicadas entre produtos diferentes...")
+    removidas = remover_imagens_duplicadas(linhas)
 
     saida = caminho_csv + ".atualizado"
     with open(saida, "w", newline="", encoding="utf-8") as f:
@@ -208,6 +257,7 @@ def main():
     print("\nResumo:")
     for chave, valor in contagem.items():
         print(f"  {chave}: {valor}")
+    print(f"  imagens duplicadas removidas: {removidas}")
     print(f"\nArquivo gerado: {saida}")
     print("Confira o resultado e, se estiver bom, substitua o produtos_skincare.csv original por ele.")
 
