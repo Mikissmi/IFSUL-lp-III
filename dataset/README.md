@@ -35,13 +35,15 @@ alimentar uma funcionalidade de **recomendação por tipo de pele / rotina**
   organização — foi preciso liberar isso nas configurações do ambiente
   antes de rodar aqui).
 
-  **Limitações conhecidas, já rodado neste dataset:** de 101 produtos com
-  link verificado, 40 estão atrás de captcha/proteção anti-robô em
-  varejistas grandes (Época Cosméticos, Sephora, Natura, Bioderma, Eucerin,
-  CeraVe, SkinCeuticals, Isdin, Nuxe, Avène entre outros) — **não
-  tentamos contornar isso**, então esses continuam sem foto/preço
-  verificados. Resultado atual: 32 produtos com foto real, 14 com preço
-  real (BRL confirmado), 18 com avaliação real.
+  **Limitações conhecidas:** Época Cosméticos, Amazon, Sephora, Droga Raia/
+  Drogasil/Panvel (mesmo grupo RD) e Beleza na Web bloqueiam coleta
+  automatizada (captcha ou HTTP 403/503 consistente) — **não tentamos
+  contornar isso**, nem usamos Amazon por causa dos termos de uso dela.
+  Quando um produto só existia nessas lojas, buscamos o mesmo produto em
+  lojas alternativas (farmácias como Pague Menos, Ultrafarma, Drogal,
+  Callfarma etc.) antes de desistir. Resultado atual, de 125 produtos:
+  **84 com foto real, 61 com preço real (BRL confirmado), 21 com avaliação
+  real.**
 
 ## Colunas
 
@@ -95,34 +97,50 @@ perfis de pele/preocupação na lógica de recomendação.
   estar erradas. Preencha com os links reais da loja/parceiro que você for
   usar.
 
-## Verificação de `link_produto`/`fonte` (101 de 125 produtos)
+## Verificação de dados reais (duas rodadas de pesquisa)
 
-Uma busca verificou, produto a produto, se ele realmente existe à venda sob
-esse nome e encontrou a página real da loja/site oficial — preenchendo
-`link_produto` e `fonte` só quando confirmado (sem visitar a página em si,
-então `imagem_url`, `preco_brl`, `avaliacao` e `num_avaliacoes` continuam
-vazios; isso exige acesso de navegação real, não só busca).
+Produto a produto, verificamos se cada um existe à venda sob esse nome
+exato, visitando a página real da loja (não só buscando) e lendo o preço/
+imagem/avaliação direto do HTML — em duas rodadas: primeiro nas lojas mais
+óbvias (Época Cosméticos, Amazon, site oficial da marca), depois, para quem
+ainda faltava, numa busca por lojas alternativas (farmácias, outros
+varejistas) quando a loja original bloqueava a coleta.
 
-**24 produtos não foram encontrados à venda sob o nome exato do catálogo** —
-prova de que alguns nomes/linhas que eu havia assumido como reais mudaram ou
-nunca existiram assim no Brasil. Antes de usar esses 24 em produção, vale
-corrigir o nome/linha ou trocar por um produto real da mesma marca:
+**41 produtos continuam sem foto/preço verificados**, ou porque a loja
+acessível bloqueia a coleta de dados (Beleza na Web, Vult, Quem Disse
+Berenice, COSRX One Step Pimple Clear Pad), ou porque o nome/linha do
+catálogo não bate com nada realmente à venda no Brasil hoje — nomes mudaram,
+produto é só internacional, ou a linha foi descontinuada/renomeada:
 
-- La Roche-Posay — Effaclar Micro-Peeling Ultra Fino
-- Vichy — Normaderm Phytosolution Esfoliante
-- Eucerin — Even Brighter Sérum
-- Bioderma — Sébium Tonique
-- CeraVe — Loção Hidratante Facial SA; Loção Hidratante com FPS 60 (CeraVe BR só vende FPS 50)
-- Neutrogena — Visibly Clear Pontos Negros
+- Vichy — Aqualia Thermal
+- Eucerin — Even Brighter Sérum (linha atual se chama "Anti-Pigment")
+- Bioderma — Photoderm Max; Sébium Tonique; Sensibio Máscara Calmante
+- CeraVe — Loção Hidratante Facial SA; Sérum de Vitamina C; Loção com FPS 60 (CeraVe BR só vende FPS 50, sem "SA" facial, sem vitamina C)
+- Neutrogena — Facial Oil-Free Acne Wash; Visibly Clear Pontos Negros (loja BR vende como linha "Purified Skin")
 - L'Oréal Paris — Hyaluron Expert Creme (linha não vendida no Brasil)
-- Sallve — Bruma Refrescante; Sérum Niacinamida 10% (só existe a versão 20%); Máscara Hidratante Calmante; Óleo Facial Nutritivo
-- Skin1004 — Centella Calming Mask
+- Sallve — Bruma Refrescante; Sérum Niacinamida 10% (só existe a versão 20%); Máscara Hidratante Calmante; Óleo Facial Nutritivo (parecem descontinuados)
+- The Ordinary — Peeling Solution AHA 30% + BHA 2% (único preço BR achado estava esgotado)
+- COSRX — One Step Pimple Clear Pad (só em lojas bloqueadas)
+- Skin1004 — Centella Calming Mask (produto exato não existe, só a "Watergel Ampoule Mask")
 - Payot — Doctor Payot Sérum Anti-Idade; Dermo Sculpt Creme
 - O Boticário — Nativa SPA Ameixa Creme Facial (só existe para corpo/mãos); Photoshow Protetor Solar Facial (linha descontinuada, hoje é "Boti.Sun")
-- Natura — Una Água Micelar
+- Natura — Una Água Micelar (linha "Una" não vende água micelar)
+- Quem disse, Berenice? — Água Micelar QDB (só em lojas bloqueadas)
+- Simple — Micellar Cleansing Water
+- Cetaphil — Moisturizing Cream (só achado em kit, imagem serviria pra 2 produtos)
+- SkinCeuticals — Hydrating B5 Gel
 - Adcos — Prevent Sérum Antioxidante; Nude Base Hidratante com Cor; Even Creme Clareador (linha atual chama-se "Melan-Off")
+- Dermage — Sun Protect Fluid Colorless (só achado com cor)
+- Isdin — Fotoprotector Fusion Fluid (só achada a linha "Fusion Water", produto diferente)
+- Nuxe — Huile Prodigieuse; Creme Fraîche de Beauté (só lojas internacionais)
 - Avène — Hydrance Aqua-Gel; Tolerance Creme
 - Granado — Água Micelar Granado (a marca não tem esse produto)
+- Racco — Sérum Facial Ácido Hialurônico; Protetor Solar Facial (marca de venda direta/revendedora, sem preço público)
+- Vult — Protetor Solar Facial (site oficial bloqueia a coleta)
+- L'Occitane en Provence — Immortelle Creme Divine (só achado em USD/lojas internacionais)
+
+Antes de usar esses 41 em produção, vale corrigir o nome/linha ou trocar
+por um produto real da mesma marca.
 
 ## Regerando ou expandindo o dataset
 
